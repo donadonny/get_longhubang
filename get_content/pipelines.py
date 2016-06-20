@@ -47,6 +47,7 @@ class transformPipeline(object):
 
 class GetContentPipeline(object):
     def process_item(self, item, spider):
+        # upsert one record
         longhubang.get_or_create(
             stock_code = item['stock_code'],
             date = item['date'],
