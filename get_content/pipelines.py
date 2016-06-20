@@ -47,17 +47,17 @@ class transformPipeline(object):
 
 class GetContentPipeline(object):
     def process_item(self, item, spider):
-        one = longhubang()
-        one.stock_code = item['stock_code']
-        one.date = item['date']
-        one.reason = item['reason']
-        one.department = item['department']
-        one.sell = item['sell']
-        one.sell_percent = item['sell_percent']
-        one.buy = item['buy']
-        one.buy_percent = item['buy_percent']
-        one.tag = item['tag']
-        one.net = item['net']
-        one.serial_number = item['serial_number']
-        one.save()
+        longhubang.get_or_create(
+            stock_code = item['stock_code'],
+            date = item['date'],
+            reason = item['reason'],
+            department = item['department'],
+            sell = item['sell'],
+            sell_percent = item['sell_percent'],
+            buy = item['buy'],
+            buy_percent = item['buy_percent'],
+            tag = item['tag'],
+            net = item['net'],
+            serial_number = item['serial_number'],
+        )
         return item

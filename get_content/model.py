@@ -2,19 +2,12 @@
 # -*- coding: utf-8 -*-
 from peewee import *
 
-db = MySQLDatabase(database="longhubang", host="192.168.0.114", port=3306, user="root", passwd="fit123456",
+db = MySQLDatabase(database="pachong", host="192.168.0.114", port=3306, user="root", passwd="fit123456",
                    charset="utf8")
 db.connect()
 
 
-class url(Model):
-    url = CharField()
-    processed = IntegerField()
-
-    class Meta:
-        database = db
-
-
+# 龙虎榜orm模型定义
 class longhubang(Model):
     stock_code = CharField()
     date = DateField()

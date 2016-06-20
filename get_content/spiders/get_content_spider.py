@@ -1,63 +1,70 @@
-# __author__ = 'fit'
+# __author__ = 'fit'`
 # -*- coding: utf-8 -*-
-from ..model import *
-import scrapy
-from ..items import *
+from get_content.model import *
+from get_content.items import *
 import urllib
 import re
 import MySQLdb
+import pandas as pd
+import scrapy
 
 
 class get_content_spider(scrapy.Spider):
     name = "get_content"
     allowed_domains = ["eastmoney.com"]
 
+    # 获取数据表中最晚的那天的日期
     def get_lastest_date(self):
-        con = MySQLdb.connect(host="192.168.0.114", port=3306, user="root", passwd="fit123456", charset="utf8", db="")
+        con = MySQLdb.connect(host="192.168.0.114", port=3306, user="root", passwd="fit123456", charset="utf8",
+                              db="pachong")
+        cur = con.cursor()
+        sql = "select date from longhubang order by date desc limit 0,1"
+        cur.execute(sql)
+        result = cur.fetchone()
+        cur.close()
+        con.close()
+        if result is None or len(result) == 0:
+            print 'maybe table longhubang is wrong!'
+            exit(-1)
+        return result[0]
 
-    # 获取链接
-    def build_url_by_date(self, prev_date=True):
-        import datetime
-        if prev_date is True:
-            prev_date = datetime.datetime.today().date() + datetime.timedelta(-1)
-        else:
-            prev_date = datetime.datetime.today().date()
-        prev_date = datetime.datetime(2016, 05, 12).date()
-        html_url = '''http://data.eastmoney.com/DataCenter_V3/stock2016/TradeDetail/pagesize=200,page=1,sortRule=-1,sortType=,startDate=%s,endDate=%s''' % (
-            prev_date, prev_date)
-        html_url += ",gpfw=0,js=var%20data_tab_1.html"
-        wp = urllib.urlopen(html_url)
-        str = wp.read()
-        code_list = re.findall(r"SCode\":\"\d\d\d\d\d\d", str)
-        i = 0
-        while i < len(code_list):
-            code_list[i] = code_list[i][-6:]
+    def build_url_by_loss_date(self):
+        latest_date = self.get_lastest_date()
+        update_con = MySQLdb.connect(host="192.168.0.114", port=3306, user="root", passwd="fit123456", charset="utf8",
+                                     db="update")
+        sql = "select distinct SH_tradeday as date from tradeday where SH_tradeday >'%s' " % latest_date
+        df = pd.read_sql(sql, con=update_con)
+        df['date'] = df['date'].map(lambda x: x.to_datetime().date())
+        date_list = df['date'].tolist()
+        ret_urls = []
+        i = 1.0
+        length = len(date_list)
+        for date in date_list:
+            print "build urls", i / length, "complete!"
+            html_url = '''http://data.eastmoney.com/DataCenter_V3/stock2016/TradeDetail/pagesize=200,page=1,sortRule=-1,sortType=,startDate=%s,endDate=%s''' % (
+                date, date)
+            html_url += ",gpfw=0,js=var%20data_tab_1.html"
+            wp = urllib.urlopen(html_url)
+            content = wp.read()
+            code_list = re.findall(r"SCode\":\"\d\d\d\d\d\d", content)
+            code_list = list(set(code_list))
+            code_list = map(lambda x: x[-6:], code_list)
+            url_list = map(lambda x: '''http://data.eastmoney.com/stock/lhb,%s,%s.html''' % (date, x), code_list)
+            ret_urls.extend(url_list)
             i += 1
-        ret = []
-        if code_list is None or len(code_list) == 0:
-            return ret
-        # 对当天的股票代码进行去重处理
-        code_list = list(set(code_list))
-        # 第一次检查重复
-        for stock_id in code_list:
-            url = '''http://data.eastmoney.com/stock/lhb,%s,%s.html''' % (prev_date, stock_id)
-            ret.append(url)
-        return ret
+        return ret_urls
 
     def start_requests(self):
-        code_list = self.build_url_by_date();
-        for item in code_list:
-            yield self.make_requests_from_url(item)
+        url_list = self.build_url_by_loss_date();
+        for url in url_list:
+            yield self.make_requests_from_url(url)
 
     def parse(self, response):
         stock_code = response.url.split(',')[2][0:6]
         date = response.url.split(',')[1]
         list = response.xpath("//div[@class='left con-br']/text()").extract()
         if list is None or len(list) == 0:
-            url_one = url.select().where(url.url == response.url).first()
             print '该链接无效'
-            url_one.processed = -1
-            url_one.save()
             return
         table1s = response.xpath("//table[@class='default_tab stock-detail-tab']")
         table2s = response.xpath("//table[@class='default_tab tab-2']")
@@ -117,5 +124,4 @@ class get_content_spider(scrapy.Spider):
                 item['sell_percent'] = tmp[7]
                 item['net'] = tmp[8]
                 yield item
-        url_one = url(processed=1, url=response.url)
-        url_one.save()
+
