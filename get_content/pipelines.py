@@ -47,18 +47,19 @@ class transformPipeline(object):
 
 class GetContentPipeline(object):
     def process_item(self, item, spider):
-        # upsert one record
-        longhubang.get_or_create(
-            stock_code = item['stock_code'],
-            date = item['date'],
-            reason = item['reason'],
-            department = item['department'],
-            sell = item['sell'],
-            sell_percent = item['sell_percent'],
-            buy = item['buy'],
-            buy_percent = item['buy_percent'],
-            tag = item['tag'],
-            net = item['net'],
-            serial_number = item['serial_number'],
+        # 修改为直接插入，upsert操作太费时
+        one = longhubang(
+            stock_code=item['stock_code'],
+            date=item['date'],
+            reason=item['reason'],
+            department=item['department'],
+            sell=item['sell'],
+            sell_percent=item['sell_percent'],
+            buy=item['buy'],
+            buy_percent=item['buy_percent'],
+            tag=item['tag'],
+            net=item['net'],
+            serial_number=item['serial_number'],
         )
+        one.save()
         return item
